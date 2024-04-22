@@ -72,6 +72,7 @@ func getRPC(t *testing.T) (*mocks.Application, rpcclient.Client) {
 		LastBlockHeight:  345,
 		LastBlockAppHash: nil,
 	}, nil)
+
 	key, _, _ := crypto.GenerateEd25519Key(rand.Reader)
 	validatorKey := ed25519.GenPrivKey()
 	nodeKey := &p2p.NodeKey{
@@ -83,7 +84,17 @@ func getRPC(t *testing.T) (*mocks.Application, rpcclient.Client) {
 	genesisValidators := []cmtypes.GenesisValidator{
 		{Address: pubKey.Address(), PubKey: pubKey, Power: int64(100), Name: "gen #1"},
 	}
-	n, err := node.NewNode(context.Background(), config.NodeConfig{DAAddress: MockDAAddress, DANamespace: MockDANamespace, Aggregator: true, BlockManagerConfig: config.BlockManagerConfig{BlockTime: 1 * time.Second}, Light: false}, key, signingKey, proxy.NewLocalClientCreator(app), &cmtypes.GenesisDoc{ChainID: "test", Validators: genesisValidators}, node.DefaultMetricsProvider(cmconfig.DefaultInstrumentationConfig()), log.TestingLogger())
+	btcConfig := config.BitcoinManagerConfig{
+		BtcHost:               "localhost:18443",
+		BtcUser:               "regtest",
+		BtcPass:               "regtest",
+		BtcHTTPPostMode:       true,
+		BtcDisableTLS:         true,
+		BtcBlockTime:          3 * time.Second,
+		BtcSignerPriv:         "5JoQtsKQuH8hC9MyvfJAqo6qmKLm8ePYNucs7tPu2YxG12trzBt",
+		BtcSignerInternalPriv: "5JGgKfRy6vEcWBpLJV5FXUfMGNXzvdWzQHUM1rVLEUJfvZUSwvS",
+	}
+	n, err := node.NewNode(context.Background(), config.NodeConfig{DAAddress: MockDAAddress, DANamespace: MockDANamespace, Aggregator: true, BlockManagerConfig: config.BlockManagerConfig{BlockTime: 1 * time.Second}, BitcoinManagerConfig: btcConfig, Light: false}, key, signingKey, proxy.NewLocalClientCreator(app), &cmtypes.GenesisDoc{ChainID: "test", Validators: genesisValidators}, node.DefaultMetricsProvider(cmconfig.DefaultInstrumentationConfig()), log.TestingLogger())
 	require.NoError(err)
 	require.NotNil(n)
 

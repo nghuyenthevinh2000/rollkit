@@ -6,9 +6,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +19,12 @@ import (
 	"github.com/cometbft/cometbft/p2p"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/stretchr/testify/mock"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
+	goDAproxy "github.com/rollkit/go-da/proxy/grpc"
+	goDATest "github.com/rollkit/go-da/test"
+	"github.com/rollkit/rollkit/da/bitcoin"
 	"github.com/rollkit/rollkit/test/mocks"
 
 	"github.com/stretchr/testify/assert"
@@ -26,6 +33,26 @@ import (
 	"github.com/cometbft/cometbft/libs/log"
 	"github.com/gorilla/rpc/v2/json2"
 )
+
+// TestMain does setup and teardown on the test package
+// to make the mock gRPC service available to the nodes
+func TestMain(m *testing.M) {
+	srv := startMockGRPCServ()
+	if srv == nil {
+		os.Exit(1)
+	}
+
+	btcRegProcess := bitcoin.RegBitcoinProcess{}
+	btcRegProcess.RunBitcoinProcess()
+
+	exitCode := m.Run()
+
+	// teardown servers
+	srv.GracefulStop()
+	btcRegProcess.Stop()
+
+	os.Exit(exitCode)
+}
 
 func TestHandlerMapping(t *testing.T) {
 	assert := assert.New(t)
@@ -414,4 +441,17 @@ func mustTimeParse(str string) time.Time {
 		panic(err)
 	}
 	return t
+}
+
+func startMockGRPCServ() *grpc.Server {
+	srv := goDAproxy.NewServer(goDATest.NewDummyDA(), grpc.Creds(insecure.NewCredentials()))
+	addr, _ := url.Parse(MockDAAddress)
+	lis, err := net.Listen("tcp", addr.Host)
+	if err != nil {
+		panic(err)
+	}
+	go func() {
+		_ = srv.Serve(lis)
+	}()
+	return srv
 }
