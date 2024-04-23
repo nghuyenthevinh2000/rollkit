@@ -12,6 +12,7 @@ import (
 	cmconfig "github.com/cometbft/cometbft/config"
 	"github.com/cometbft/cometbft/crypto/ed25519"
 	proxy "github.com/cometbft/cometbft/proxy"
+	cmtypes "github.com/cometbft/cometbft/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -100,15 +101,15 @@ func cleanUpNode(node Node, t *testing.T) {
 
 // initializeAndStartNode initializes and starts a node of the specified type.
 func initAndStartNodeWithCleanup(ctx context.Context, t *testing.T, nodeType NodeType, aggregatorMode bool) Node {
-	node, _ := setupTestNode(ctx, t, nodeType, aggregatorMode, "")
+	node, _ := setupTestNode(ctx, t, nodeType, aggregatorMode, "", nil, nil)
 	startNodeWithCleanup(t, node)
 
 	return node
 }
 
 // setupTestNode sets up a test node based on the NodeType.
-func setupTestNode(ctx context.Context, t *testing.T, nodeType NodeType, aggregatorMode bool, chainId string) (Node, ed25519.PrivKey) {
-	node, privKey, err := newTestNode(ctx, t, nodeType, aggregatorMode, chainId)
+func setupTestNode(ctx context.Context, t *testing.T, nodeType NodeType, aggregatorMode bool, chainId string, genesis *cmtypes.GenesisDoc, privateKey ed25519.PrivKey) (Node, ed25519.PrivKey) {
+	node, privKey, err := newTestNode(ctx, t, nodeType, aggregatorMode, chainId, genesis, privateKey)
 	require.NoError(t, err)
 	require.NotNil(t, node)
 
@@ -116,7 +117,8 @@ func setupTestNode(ctx context.Context, t *testing.T, nodeType NodeType, aggrega
 }
 
 // newTestNode creates a new test node based on the NodeType.
-func newTestNode(ctx context.Context, t *testing.T, nodeType NodeType, aggregatorMode bool, chainId string) (Node, ed25519.PrivKey, error) {
+// custom genesis doc
+func newTestNode(ctx context.Context, t *testing.T, nodeType NodeType, aggregatorMode bool, chainId string, genesis *cmtypes.GenesisDoc, genesisValidatorKey ed25519.PrivKey) (Node, ed25519.PrivKey, error) {
 	config := config.NodeConfig{
 		DAAddress:   MockDAAddress,
 		DANamespace: MockDANamespace,
@@ -142,7 +144,9 @@ func newTestNode(ctx context.Context, t *testing.T, nodeType NodeType, aggregato
 		panic(fmt.Sprintf("invalid node type: %v", nodeType))
 	}
 	app := setupMockApplication()
-	genesis, genesisValidatorKey := types.GetGenesisWithPrivkey(chainId)
+	if genesis == nil && genesisValidatorKey == nil {
+		genesis, genesisValidatorKey = types.GetGenesisWithPrivkey(chainId)
+	}
 	signingKey, err := types.PrivKeyToSigningKey(genesisValidatorKey)
 	if err != nil {
 		return nil, nil, err

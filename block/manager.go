@@ -1395,6 +1395,10 @@ func (m *Manager) GetBtcRollUpsBlockFromStore(ctx context.Context, height uint64
 	return m.store.GetBtcRollupsProofs(ctx, height)
 }
 
+func (m *Manager) GetBlockFromStore(ctx context.Context, height uint64) (*types.Block, error) {
+	return m.store.GetBlock(ctx, height)
+}
+
 // save a block to store
 func (m *Manager) SaveBlock(ctx context.Context, block *types.Block, commit *types.Commit) error {
 	blockHeight := block.Height()

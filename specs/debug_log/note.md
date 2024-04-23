@@ -15,4 +15,8 @@ that was due to unset private and internal private key
 because it was fetching from height 0, I need to set another bitcoin start height
 
 3. engine is fetching old btc blocks first from last test run, which disrupt btc height to new test runs
-* data pushed to bitcoin needs to define version
+* data pushed to bitcoin needs to define version (use random chain id to distinguish)
+
+4. why node 2 doesn't find block submitted to DA layer?
+* node 1 pushes 15 blocks, node 2 is supposed to find it
+* fixed with setting same genesis for both nodes

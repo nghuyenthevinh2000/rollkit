@@ -59,7 +59,7 @@ func TestMempoolDirectly(t *testing.T) {
 func TestTrySyncNextBlockMultiple(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	node, signingKey := setupTestNode(ctx, t, Full, false, "")
+	node, signingKey := setupTestNode(ctx, t, Full, false, "", nil, nil)
 	fullNode, ok := node.(*FullNode)
 	require.True(t, ok)
 
@@ -110,7 +110,7 @@ func TestTrySyncNextBlockMultiple(t *testing.T) {
 func TestInvalidBlocksIgnored(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	node, signingKey := setupTestNode(ctx, t, Full, false, "")
+	node, signingKey := setupTestNode(ctx, t, Full, false, "", nil, nil)
 	fullNode, ok := node.(*FullNode)
 	require.True(t, ok)
 	store := fullNode.Store

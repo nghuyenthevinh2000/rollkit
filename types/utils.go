@@ -317,7 +317,6 @@ func GetGenesisWithPrivkey(chainId string) (*cmtypes.GenesisDoc, ed25519.PrivKey
 	}}
 
 	if chainId == "" {
-		// randomize a number for 1 to 1000
 		chainId = TestChainID
 	}
 
