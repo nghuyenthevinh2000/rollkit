@@ -16,6 +16,7 @@ How would I submit blocks to Bitcoin?
 - [bitcoin node integration](../../node/bitcoin.go)
 - [bitcoin client manager](../../block/manager.go)
 - [bitcoin block store](../../block/bitcoin.go)
+- [bitcoin types](../../proto/bitcoin/bitcoin.proto)
 
 # bitcoin client
 bitcoin client structure
