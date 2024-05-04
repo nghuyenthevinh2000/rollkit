@@ -26,3 +26,11 @@ because it was fetching from height 0, I need to set another bitcoin start heigh
 * DA namespace is the same for both read and write operations. What seems to be the problem here?
 * Aggregator submitted all 15 roll ups blocks to DA layer at DA height 1
 * This is due to DummyDA implementation of Submit() and GetIds() which stores blobs at exact height, I need to get blobs at exact height
+
+All of this could take
+* 433B/block
+* 259800B/600 block (assume 1 second roll - ups)
+* 259800*64(sats/B) = 16627200 (sats), approx 12k\$/block
+* 1 day has 144 btc blocks: 1728000\$/day, 51840000\$/month
+
+I need to optimize data size for proofs
