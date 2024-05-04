@@ -20,3 +20,9 @@ because it was fetching from height 0, I need to set another bitcoin start heigh
 4. why node 2 doesn't find block submitted to DA layer?
 * node 1 pushes 15 blocks, node 2 is supposed to find it
 * fixed with setting same genesis for both nodes
+
+5. DA node GetIDs() is empty in da RetrieveBlocks()
+* DA node is getting empty IDs
+* DA namespace is the same for both read and write operations. What seems to be the problem here?
+* Aggregator submitted all 15 roll ups blocks to DA layer at DA height 1
+* This is due to DummyDA implementation of Submit() and GetIds() which stores blobs at exact height, I need to get blobs at exact height

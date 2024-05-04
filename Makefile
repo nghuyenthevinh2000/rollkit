@@ -69,7 +69,15 @@ vet:
 test: vet
 	@echo "--> Running unit tests"
 	@go test -v -race -covermode=atomic -coverprofile=coverage.txt $(pkgs) -run $(run) -count=$(count)
-.PHONY: test
+
+test-btc:
+	@echo "--> Running bitcoin tests"
+	@go test -v github.com/rollkit/rollkit/da/bitcoin -run . -count=1
+	@go test -v github.com/rollkit/rollkit/block -run TestSyncBitcoinBlocks -count=1
+	@go test -v github.com/rollkit/rollkit/block -run TestBtcBlockSubmissionLoop -count=1
+	@go test -v github.com/rollkit/rollkit/node -run TestBtcFetchSubmitProofs -count=1
+
+.PHONY: test test-btc
 
 ## proto-gen: Generate protobuf files. Requires docker.
 proto-gen:

@@ -68,6 +68,11 @@ func TestBtcFetchSubmitProofs(t *testing.T) {
 	}()
 
 	go func() {
+		// sleep for 10 seconds to allow node 1 to start and submit blobs to DummyDA
+		// due to DummyDA GetIDs() at exact height, we need to wait for node 1 to submit blobs before starting node 2
+		// if still get error related to node2 not getting a block, increase sleep time
+		time.Sleep(10 * time.Second)
+
 		startNodeWithCleanup(t, node2)
 	}()
 

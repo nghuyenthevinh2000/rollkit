@@ -27,6 +27,7 @@ import (
 	"github.com/rollkit/rollkit/da/bitcoin"
 	"github.com/rollkit/rollkit/node"
 	"github.com/rollkit/rollkit/store"
+	test "github.com/rollkit/rollkit/test/log"
 	"github.com/rollkit/rollkit/test/mocks"
 	"github.com/rollkit/rollkit/types"
 	btctypes "github.com/rollkit/rollkit/types/pb/bitcoin"
@@ -113,10 +114,10 @@ func TestSyncBitcoinBlocks(t *testing.T) {
 			BtcDisableTLS:   true,
 		},
 	}
-	btcClient, err := node.InitBitcoinClient(nodeConfig, log.NewNopLogger(), "")
+	btcClient, err := node.InitBitcoinClient(nodeConfig, log.NewNopLogger(), bitcoin.GetRandomChainId())
 	assert.NoError(t, err)
 
-	manager, err := NewMockManager(btcClient)
+	manager, err := NewMockManager(t, btcClient)
 	assert.NoError(t, err)
 	assert.NotNil(t, manager)
 
@@ -185,10 +186,10 @@ func TestBtcBlockSubmissionLoop(t *testing.T) {
 			BtcDisableTLS:   true,
 		},
 	}
-	btcClient, err := node.InitBitcoinClient(nodeConfig, log.NewNopLogger(), "")
+	btcClient, err := node.InitBitcoinClient(nodeConfig, log.NewNopLogger(), bitcoin.GetRandomChainId())
 	assert.NoError(t, err)
 
-	manager, err := NewMockManager(btcClient)
+	manager, err := NewMockManager(t, btcClient)
 	assert.NoError(t, err)
 	assert.NotNil(t, manager)
 
@@ -269,7 +270,7 @@ func TestBtcBlockSubmissionLoop(t *testing.T) {
 	}
 }
 
-func NewMockManager(btc *bitcoin.BitcoinClient) (*block.Manager, error) {
+func NewMockManager(t *testing.T, btc *bitcoin.BitcoinClient) (*block.Manager, error) {
 	genesisDoc, genesisValidatorKey := types.GetGenesisWithPrivkey("")
 	signingKey, err := types.PrivKeyToSigningKey(genesisValidatorKey)
 	if err != nil {
@@ -330,7 +331,7 @@ func NewMockManager(btc *bitcoin.BitcoinClient) (*block.Manager, error) {
 		daClient,
 		btc,
 		nil,
-		log.NewNopLogger(),
+		test.NewLogger(t),
 		nil,
 		nil,
 		nil,

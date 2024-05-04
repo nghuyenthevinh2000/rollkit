@@ -2,6 +2,7 @@ package bitcoin
 
 import (
 	"fmt"
+	"math/rand"
 	"os/exec"
 	"syscall"
 	"time"
@@ -37,9 +38,10 @@ func (reg *RegBitcoinProcess) RunBitcoinProcess() {
 	time.Sleep(5 * time.Second)
 
 	// generate blocks
+	// if newly created bitcoin regtest, need to generate 101 blocks to finalize coinbase rewards. This is for insufficient funds
 	go func() {
 		for {
-			err := exec.Command("bitcoin-cli", "-regtest", "-generate").Run()
+			err := exec.Command("bitcoin-cli", "-regtest", "-generate", "-rpcport=18443", rpcUser, rpcPass).Run()
 			if err != nil {
 				panic(err)
 			}
@@ -55,4 +57,8 @@ func (reg *RegBitcoinProcess) Stop() {
 			panic(err)
 		}
 	}
+}
+
+func GetRandomChainId() string {
+	return fmt.Sprintf("test-chain-%d", rand.Intn(1000))
 }
