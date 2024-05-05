@@ -1058,8 +1058,6 @@ func (m *Manager) publishBlock(ctx context.Context) error {
 	m.blockCache.setSeen(blockHash)
 
 	// SaveBlock commits the DB tx
-	m.logger.Debug(fmt.Sprintf("block saved: %+v", block))
-
 	err = m.store.SaveBlock(ctx, block, commit)
 	if err != nil {
 		return err
@@ -1070,8 +1068,6 @@ func (m *Manager) publishBlock(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
-	m.logger.Debug("saving btc rollups proofs", proofs)
 
 	err = m.store.SetBtcRollupsProofs(ctx, proofs)
 	if err != nil {
@@ -1258,8 +1254,6 @@ func (m *Manager) submitProofsToBitcoin(ctx context.Context) error {
 
 btcSubmitRetryLoop:
 	for !submittedAllBlocks && attempt < maxSubmitAttempts {
-		fmt.Printf("attempt %d\n", attempt)
-
 		select {
 		case <-ctx.Done():
 			break btcSubmitRetryLoop
@@ -1328,8 +1322,6 @@ func (m *Manager) exponentialBtcBackoff(backoff time.Duration) time.Duration {
 func (m *Manager) updateState(ctx context.Context, s types.State) error {
 	m.lastStateMtx.Lock()
 	defer m.lastStateMtx.Unlock()
-	m.logger.Debug(fmt.Sprintf("update state: %+v", s))
-
 	err := m.store.UpdateState(ctx, s)
 	if err != nil {
 		return err
