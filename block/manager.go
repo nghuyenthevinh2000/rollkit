@@ -520,7 +520,7 @@ func (m *Manager) SyncLoop(ctx context.Context, cancel context.CancelFunc) {
 		// handle retrieved blocks from bitcoin
 		case btcBlockEvent := <-m.btcBlockInCh:
 			block := btcBlockEvent.Block
-			blockHash := string(block.BlockProofs)
+			blockHash := types.Hash(block.BlockProofs).String()
 			blockHeight := block.Height
 			btcHeight := btcBlockEvent.BtcHeight
 			m.logger.Debug("block body retrieved from bitcoin",
@@ -795,8 +795,9 @@ func (m *Manager) processNextBitcoinBlock(ctx context.Context) error {
 			m.logger.Debug("retrieved potential blocks", "n", len(stateProofs.Blocks), "btcHeight", btcHeight)
 
 			for _, block := range stateProofs.Blocks {
-				blockHash := string(block.BlockProofs)
+				blockHash := types.Hash(block.BlockProofs).String()
 				if m.btcBlockCache.isSeen(blockHash) {
+					m.logger.Debug("block already seen", "height", block.Height, "block hash", blockHash)
 					continue
 				}
 
@@ -1057,6 +1058,8 @@ func (m *Manager) publishBlock(ctx context.Context) error {
 	m.blockCache.setSeen(blockHash)
 
 	// SaveBlock commits the DB tx
+	m.logger.Debug(fmt.Sprintf("block saved: %+v", block))
+
 	err = m.store.SaveBlock(ctx, block, commit)
 	if err != nil {
 		return err
@@ -1067,6 +1070,8 @@ func (m *Manager) publishBlock(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	m.logger.Debug("saving btc rollups proofs", proofs)
 
 	err = m.store.SetBtcRollupsProofs(ctx, proofs)
 	if err != nil {
@@ -1274,7 +1279,7 @@ btcSubmitRetryLoop:
 
 			// record submitted proofs to bitcoin
 			for _, block := range blocksToSubmit {
-				m.btcBlockCache.setBtcIncluded(string(block.BlockProofs))
+				m.btcBlockCache.setBtcIncluded(types.Hash(block.BlockProofs).String())
 			}
 
 			// set last submitted proofs height
@@ -1323,6 +1328,8 @@ func (m *Manager) exponentialBtcBackoff(backoff time.Duration) time.Duration {
 func (m *Manager) updateState(ctx context.Context, s types.State) error {
 	m.lastStateMtx.Lock()
 	defer m.lastStateMtx.Unlock()
+	m.logger.Debug(fmt.Sprintf("update state: %+v", s))
+
 	err := m.store.UpdateState(ctx, s)
 	if err != nil {
 		return err

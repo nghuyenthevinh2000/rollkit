@@ -1,7 +1,6 @@
 package block
 
 import (
-	"crypto/sha256"
 	"sync"
 
 	"github.com/rollkit/rollkit/types"
@@ -68,22 +67,9 @@ func (bc *BtcBlockCache) setBtcIncluded(hash string) {
 
 func ConvertBlockToProofs(block *types.Block) (*btctypes.RollUpsBlock, error) {
 	// construct proofs for btc
-	signedHeader, err := block.SignedHeader.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-
-	// sha256 of all txs to ensure ordering
-	var txOrderProofs [32]byte
-	var combinedTxs []byte
-	for _, txBytes := range block.Data.Txs.ToSliceOfBytes() {
-		combinedTxs = append(combinedTxs, txBytes...)
-	}
-	txOrderProofs = sha256.Sum256(combinedTxs)
-
 	proof := &btctypes.RollUpsBlock{
-		BlockProofs:   signedHeader,
-		TxOrderProofs: txOrderProofs[:],
+		BlockProofs:   block.SignedHeader.AppHash,
+		TxOrderProofs: block.SignedHeader.DataHash,
 		Height:        block.Height(),
 	}
 

@@ -320,7 +320,13 @@ func setupMockApplication() *mocks.Application {
 	app.On("CheckTx", mock.Anything, mock.Anything).Return(&abci.ResponseCheckTx{}, nil)
 	app.On("PrepareProposal", mock.Anything, mock.Anything).Return(prepareProposalResponse).Maybe()
 	app.On("ProcessProposal", mock.Anything, mock.Anything).Return(&abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_ACCEPT}, nil)
-	app.On("FinalizeBlock", mock.Anything, mock.Anything).Return(&abci.ResponseFinalizeBlock{AppHash: []byte{1, 2, 3, 4}}, nil)
+	app.On("FinalizeBlock", mock.Anything, mock.Anything).Return(func(_ context.Context, req *abci.RequestFinalizeBlock) (*abci.ResponseFinalizeBlock, error) {
+		// deterministic app hash for block finalization
+		data := sha256.Sum256([]byte(string(rune(req.Height))))
+		app_hash := types.Hash(data[:])
+
+		return &abci.ResponseFinalizeBlock{AppHash: app_hash}, nil
+	})
 	app.On("Commit", mock.Anything, mock.Anything).Return(&abci.ResponseCommit{}, nil)
 	return app
 }

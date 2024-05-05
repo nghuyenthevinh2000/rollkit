@@ -2,6 +2,7 @@ package block_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"net"
@@ -33,6 +34,7 @@ import (
 	btctypes "github.com/rollkit/rollkit/types/pb/bitcoin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -97,6 +99,20 @@ func submitStateProofs(t *testing.T, btcClient *bitcoin.BitcoinClient, start, en
 	res := btcClient.SubmitStateProofs(context.Background(), state, bobPrivateKey, internalPrivateKey, chaincfg)
 	assert.Equal(t, bitcoin.StatusSuccess, res.Code)
 	t.Logf("SubmitStateProofs: %+v\n", res)
+}
+
+// go test -v -run ^TestProofsSize$ github.com/rollkit/rollkit/block
+func TestProofsSize(t *testing.T) {
+	randBlock := types.GetRandomBlock(1, 10)
+
+	proofs, err := block.ConvertBlockToProofs(randBlock)
+	assert.NoError(t, err)
+
+	bytes, err := proofs.Marshal()
+	assert.NoError(t, err)
+
+	t.Logf("proofs: %dB, assume 64sats/B, sats = %d\n", len(bytes), len(bytes)*64)
+	require.Equal(t, 70, len(bytes))
 }
 
 // go test -v -run ^TestSyncBitcoinBlocks$ github.com/rollkit/rollkit/block
@@ -228,12 +244,12 @@ func TestBtcBlockSubmissionLoop(t *testing.T) {
 	go func() {
 		btcBlockChannel := manager.GetBtcBlockInCh()
 		for {
-			t.Logf("fetching proofs from bitcoin, len = %d \n", len(proofs))
+			t.Logf("fetching proofs from bitcoin, len = %d\n", len(proofs))
 			select {
 			case btcBlockEvent := <-btcBlockChannel:
 				block := btcBlockEvent.Block
 				// basic check before allowed to add into proofs
-				if len(block.BlockProofs) != 479 {
+				if len(block.BlockProofs) != 32 {
 					continue
 				}
 
@@ -372,7 +388,13 @@ func setupMockApplication() *mocks.Application {
 	app.On("CheckTx", mock.Anything, mock.Anything).Return(&abci.ResponseCheckTx{}, nil)
 	app.On("PrepareProposal", mock.Anything, mock.Anything).Return(prepareProposalResponse).Maybe()
 	app.On("ProcessProposal", mock.Anything, mock.Anything).Return(&abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_ACCEPT}, nil)
-	app.On("FinalizeBlock", mock.Anything, mock.Anything).Return(&abci.ResponseFinalizeBlock{AppHash: []byte{1, 2, 3, 4}}, nil)
+	app.On("FinalizeBlock", mock.Anything, mock.Anything).Return(func(_ context.Context, req *abci.RequestFinalizeBlock) (*abci.ResponseFinalizeBlock, error) {
+		// deterministic app hash for block finalization
+		data := sha256.Sum256([]byte(string(rune(req.Height))))
+		app_hash := types.Hash(data[:])
+
+		return &abci.ResponseFinalizeBlock{AppHash: app_hash}, nil
+	})
 	app.On("Commit", mock.Anything, mock.Anything).Return(&abci.ResponseCommit{}, nil)
 	return app
 }
