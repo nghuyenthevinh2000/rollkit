@@ -414,6 +414,7 @@ func (n *FullNode) OnStart() error {
 	n.threadManager.Go(func() { n.blockManager.BtcRetrieveLoop(n.ctx) })
 	n.threadManager.Go(func() { n.blockManager.BlockStoreRetrieveLoop(n.ctx) })
 	n.threadManager.Go(func() { n.blockManager.SyncLoop(n.ctx, n.cancel) })
+	n.threadManager.Go(func() { n.blockManager.VerificationLoop(n.ctx) })
 	return nil
 }
 
