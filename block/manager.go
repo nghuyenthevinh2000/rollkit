@@ -551,6 +551,64 @@ func (m *Manager) SyncLoop(ctx context.Context, cancel context.CancelFunc) {
 	}
 }
 
+// VerificationLoop is responsible for verifying proofs from btc against roll ups blocks.
+func (m *Manager) VerificationLoop(ctx context.Context) {
+	daTicker := time.NewTicker(m.conf.DABlockTime)
+	defer daTicker.Stop()
+	blockTicker := time.NewTicker(m.conf.BlockTime)
+	defer blockTicker.Stop()
+	btcTicker := time.NewTicker(m.btcConf.BtcBlockTime)
+	defer btcTicker.Stop()
+	lastVerifiedHeight := uint64(0)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-blockTicker.C:
+		case <-btcTicker.C:
+		case <-daTicker.C:
+		}
+		btcRollUpsHeight := m.store.BtcRollupsProofsHeight()
+		blockStorHeight := m.store.Height()
+		minHeight := min(btcRollUpsHeight, blockStorHeight)
+		if minHeight > lastVerifiedHeight {
+			for i := uint64(lastVerifiedHeight + 1); i <= minHeight; i++ {
+				b1, err := m.GetBlockFromStore(ctx, i)
+				if err != nil {
+					m.logger.Error("failed to get block from Block Store", "blockHeight", i, "errors", err.Error())
+					continue
+				}
+
+				b2, err := m.GetBtcRollUpsBlockFromStore(ctx, i)
+				if err != nil {
+					m.logger.Error("failed to get block from roll ups", "blockHeight", i, "errors", err.Error())
+					continue
+				}
+
+				p, err := ConvertBlockToProofs(b1)
+				if err != nil {
+					m.logger.Error("failed to convert block to proofs", "blockHeight", i, "errors", err.Error())
+					continue
+				}
+
+				if p.Height != b2.Height {
+					panic(fmt.Sprintf("block height is different between block store and roll ups (%d) - (%d)",
+						p.Height, b2.Height))
+				}
+
+				if !bytes.Equal(p.BlockProofs, b2.BlockProofs) {
+					panic("block proofs are different between block store and roll ups")
+				}
+
+				if !bytes.Equal(p.TxOrderProofs, b2.TxOrderProofs) {
+					panic("tx order proofs are different between block store and roll ups")
+				}
+			}
+		}
+		lastVerifiedHeight = minHeight
+	}
+}
+
 func (m *Manager) sendNonBlockingSignalToBlockStoreCh() {
 	select {
 	case m.blockStoreCh <- struct{}{}:
