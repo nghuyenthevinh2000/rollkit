@@ -37,10 +37,10 @@ func getManager(t *testing.T, backend goDA.DA) *Manager {
 		logger:     logger,
 		conf: config.BlockManagerConfig{
 			BlockTime:   1 * time.Second,
-			DABlockTime: 1 * time.Second,
+			DABlockTime: 2 * time.Second,
 		},
 		btcConf: config.BitcoinManagerConfig{
-			BtcBlockTime: 1 * time.Second,
+			BtcBlockTime: 3 * time.Second,
 		},
 	}
 }
