@@ -123,8 +123,8 @@ func TestSyncBitcoinBlocks(t *testing.T) {
 		// host: "localhost:18443"
 		BitcoinManagerConfig: config.BitcoinManagerConfig{
 			BtcHost: "0.0.0.0:18443",
-			BtcUser: "regtest",
-			BtcPass: "regtest",
+			BtcUser: "hadt",
+			BtcPass: "ubuntu1234",
 			// enable http post mode which is bitcoin node default
 			BtcHTTPPostMode: true,
 			BtcDisableTLS:   true,
@@ -195,8 +195,8 @@ func TestBtcBlockSubmissionLoop(t *testing.T) {
 		// host: "localhost:18443"
 		BitcoinManagerConfig: config.BitcoinManagerConfig{
 			BtcHost: "0.0.0.0:18443",
-			BtcUser: "regtest",
-			BtcPass: "regtest",
+			BtcUser: "hadt",
+			BtcPass: "ubuntu1234",
 			// enable http post mode which is bitcoin node default
 			BtcHTTPPostMode: true,
 			BtcDisableTLS:   true,

@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	goDA "github.com/rollkit/go-da"
 	goDATest "github.com/rollkit/go-da/test"
 
+	"github.com/rollkit/rollkit/config"
 	"github.com/rollkit/rollkit/da"
 	"github.com/rollkit/rollkit/da/mock"
 	"github.com/rollkit/rollkit/store"
@@ -33,6 +35,13 @@ func getManager(t *testing.T, backend goDA.DA) *Manager {
 		dalc:       da.NewDAClient(backend, -1, -1, nil, logger),
 		blockCache: NewBlockCache(),
 		logger:     logger,
+		conf: config.BlockManagerConfig{
+			BlockTime:   1 * time.Second,
+			DABlockTime: 1 * time.Second,
+		},
+		btcConf: config.BitcoinManagerConfig{
+			BtcBlockTime: 1 * time.Second,
+		},
 	}
 }
 
@@ -480,4 +489,155 @@ func Test_publishBlock_ManagerNotProposer(t *testing.T) {
 	m.isProposer = false
 	err := m.publishBlock(context.Background())
 	require.ErrorIs(err, ErrNotProposer)
+}
+
+// go test -v -run ^TestVerificationLoop$ github.com/rollkit/rollkit/block
+func TestVerificationLoop(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+	ctx := context.Background()
+
+	m := getManager(t, goDATest.NewDummyDA())
+
+	var err error
+
+	testCases := []struct {
+		name                 string
+		blocks               []*types.Block
+		hackedRollupsBlock   *types.Block
+		expectedPanicMessage string
+		round1               int
+	}{
+		{
+			name: "run VerificationLoop for block A, B, C not panic",
+			blocks: func() []*types.Block {
+				block1 := types.GetRandomBlock(1, 100)
+
+				block2 := types.GetRandomBlock(2, 100)
+
+				block3 := types.GetRandomBlock(3, 100)
+
+				block4 := types.GetRandomBlock(4, 100)
+
+				block5 := types.GetRandomBlock(5, 100)
+
+				return []*types.Block{block1, block2, block3, block4, block5}
+			}(),
+			hackedRollupsBlock: nil,
+			round1:             3,
+		},
+		{
+			name: "run VerificationLoop for block A, B, C panic",
+			blocks: func() []*types.Block {
+				block1 := types.GetRandomBlock(1, 100)
+
+				block2 := types.GetRandomBlock(2, 100)
+
+				block3 := types.GetRandomBlock(3, 100)
+
+				return []*types.Block{block1, block2, block3}
+			}(),
+			hackedRollupsBlock:   types.GetRandomBlock(3, 100),
+			expectedPanicMessage: "block proofs are different between block store and roll ups",
+			round1:               3,
+		},
+	}
+
+	for _, tc := range testCases {
+		// there is a limitation of value size for underlying in-memory KV store, so (temporary) on-disk store is needed
+		kvStore := getTempKVStore(t)
+		m.store = store.New(kvStore)
+		m.pendingBlocks, err = NewPendingBlocks(m.store, m.logger)
+		require.NoError(err)
+		t.Run(tc.name, func(t *testing.T) {
+			// round 1
+			// submit block and roll ups proof to store at the same time
+			for idx, block := range tc.blocks {
+				if idx == tc.round1 {
+					break
+				}
+
+				require.NoError(m.store.SaveBlock(ctx, block, &types.Commit{}))
+
+				if idx < len(tc.blocks)-1 || tc.hackedRollupsBlock == nil {
+					// set bitcoin rollups proofs
+					proofs, err := ConvertBlockToProofs(block)
+					assert.NoError(err)
+
+					err = m.store.SetBtcRollupsProofs(ctx, proofs)
+					assert.NoError(err)
+				} else {
+					// last block different between block store and roll ups
+					proofs, err := ConvertBlockToProofs(tc.hackedRollupsBlock)
+					assert.NoError(err)
+
+					err = m.store.SetBtcRollupsProofs(ctx, proofs)
+					assert.NoError(err)
+				}
+			}
+			m.store.SetHeight(ctx, uint64(tc.round1))
+			m.store.SetBtcRollupsProofsHeight(ctx, uint64(tc.round1))
+
+			var wg sync.WaitGroup
+			wg.Add(1)
+
+			go func() {
+				if tc.hackedRollupsBlock != nil {
+					defer func() {
+						if r := recover(); r == nil {
+							t.Errorf("The code did not panic")
+						} else {
+							assert.Equal(r, tc.expectedPanicMessage)
+						}
+					}()
+
+					m.VerificationLoop(ctx)
+				} else {
+					assert.NotPanics(func() {
+						m.VerificationLoop(ctx)
+					})
+				}
+			}()
+
+			// round 2
+			// submit block and roll ups proof to store in different interval
+
+			go func() {
+				for idx, block := range tc.blocks {
+					if idx < tc.round1 {
+						continue
+					}
+
+					require.NoError(m.store.SaveBlock(ctx, block, &types.Commit{}))
+					m.store.SetHeight(ctx, uint64(idx+1))
+				}
+			}()
+
+			go func() {
+				for idx, block := range tc.blocks {
+					if idx < tc.round1 {
+						continue
+					}
+
+					// set bitcoin rollups proofs
+					proofs, err := ConvertBlockToProofs(block)
+					assert.NoError(err)
+
+					err = m.store.SetBtcRollupsProofs(ctx, proofs)
+					assert.NoError(err)
+
+					m.store.SetBtcRollupsProofsHeight(ctx, uint64(idx+1))
+
+					time.Sleep(1 * time.Second)
+				}
+
+				// wait VerificationLoop for round 2 finish
+				time.Sleep(5 * time.Second)
+				wg.Done()
+			}()
+
+			// wait for all processes to finish
+			wg.Wait()
+		})
+	}
 }
